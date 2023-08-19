@@ -1,17 +1,100 @@
+// A basic everyday NeoPixel strip test program.
+
+// NEOPIXEL BEST PRACTICES for most reliable operation:
+// - Add 1000 uF CAPACITOR between NeoPixel strip's + and - connections.
+// - MINIMIZE WIRING LENGTH between microcontroller board and first pixel.
+// - NeoPixel strip's DATA-IN should pass through a 300-500 OHM RESISTOR.
+// - AVOID connecting NeoPixels on a LIVE CIRCUIT. If you must, ALWAYS
+//   connect GROUND (-) first, then +, then data.
+// - When using a 3.3V microcontroller with a 5V-powered NeoPixel strip,
+//   a LOGIC-LEVEL CONVERTER on the data line is STRONGLY RECOMMENDED.
+// (Skipping these may work OK on your workbench but can fail in the field)
+
+#include <Adafruit_NeoPixel.h>
 #include <Arduino.h>
 
-#define LED_BUILTIN PC13
+// Connect this STM32 pin to the WS2812b RGB chain's Data In line.
+#define LED_PIN A1
+
+// How many WS2812b are in the array?
+#define LED_COUNT 5
+
+// some defines for time management later
+#define secs_per_hour 1
+#define hours_between_task 36
+#define hours_to_critical 36
+
+/* 
+ * Math for how long each 'tick' on the timer should be
+ * Every tick, one LED changes colors, scrolling down the length of
+ * the string. Green means task was just done, yellow means time to
+ * do the task again, red means we are over time to do the task.
+ * 
+ * Flashy police lights mean the cat police have been called and
+ * are on their way.
+ */
+
+#define SECS_PER_TICK                                                          \
+  (secs_per_hour * (hours_between_task + hours_to_critical) / LED_COUNT / 2)
+
+// Declare a light strip object
+Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
 
 void setup() {
-  // put your setup code here, to run once:
-  pinMode(LED_BUILTIN, OUTPUT);
+  strip.begin();           // INITIALIZE NeoPixel strip object (REQUIRED)
+  strip.show();            // Turn OFF all pixels ASAP
+  strip.setBrightness(50); // Set BRIGHTNESS to about 1/5 (max = 255)
+}
+
+// Some functions of our own for creating animated effects -----------------
+
+// Fill strip pixels one after another with a color. Strip is NOT cleared
+// first; anything there will be covered pixel by pixel. Pass in color
+// (as a single 'packed' 32-bit value, which you can get by calling
+// strip.Color(red, green, blue) as shown in the loop() function above),
+// and a delay time (in milliseconds) between pixels.
+void colorWipe(uint32_t color, int wait) {
+  for (int i = 0; i < strip.numPixels(); i++) { // For each pixel in strip...
+    strip.setPixelColor(i, color);              //  Set pixel's color (in RAM)
+    strip.show();                               //  Update strip to match
+    delay(wait);                                //  Pause for a moment
+  }
+}
+
+/*
+ * This function sets the entire strip to the given color and shows it
+ * immediately.
+ *
+ * The colors are GRB because I am using WS2812b LEDs, which order the
+ * colors that way.
+ */
+void set_strip_and_show(char red, char green, char blue) {
+  for (int c = 0; c < strip.numPixels(); c++) {
+    strip.setPixelColor(c, strip.Color(red, green, blue));
+  }
+  strip.show();
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
-  digitalWrite(LED_BUILTIN,
-               HIGH); // turn the LED on (HIGH is the voltage level)
-  delay(1000);        // wait for a second
-  digitalWrite(LED_BUILTIN, LOW);
-  delay(1000); // wait for a second
+
+  int tick_delay = SECS_PER_TICK * 1000;
+
+  // The device has reset, so begin the countdown:
+  // Set the color to green
+  set_strip_and_show(0, 255, 0);
+  delay(tick_delay);
+
+  // Begin the color wipe toward yellow
+  colorWipe(strip.Color(255, 200, 0), tick_delay);
+
+  // Begin wipe toward red
+  colorWipe(strip.Color(255, 0, 0), tick_delay);
+
+  // After a tick of red, begin the angry colors
+  while (1) {
+    set_strip_and_show(255, 0, 0);
+    delay(200);
+    set_strip_and_show(0, 0, 255);
+    delay(200);
+  }
 }
