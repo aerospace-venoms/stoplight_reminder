@@ -1,14 +1,8 @@
-// A basic everyday NeoPixel strip test program.
-
-// NEOPIXEL BEST PRACTICES for most reliable operation:
-// - Add 1000 uF CAPACITOR between NeoPixel strip's + and - connections.
-// - MINIMIZE WIRING LENGTH between microcontroller board and first pixel.
-// - NeoPixel strip's DATA-IN should pass through a 300-500 OHM RESISTOR.
-// - AVOID connecting NeoPixels on a LIVE CIRCUIT. If you must, ALWAYS
-//   connect GROUND (-) first, then +, then data.
-// - When using a 3.3V microcontroller with a 5V-powered NeoPixel strip,
-//   a LOGIC-LEVEL CONVERTER on the data line is STRONGLY RECOMMENDED.
-// (Skipping these may work OK on your workbench but can fail in the field)
+/*
+ * main.cpp
+ *
+ * This file implements the LED strip task reminder.
+ */
 
 #include <Adafruit_NeoPixel.h>
 #include <Arduino.h>
@@ -20,22 +14,23 @@
 #define LED_COUNT 5
 
 // some defines for time management later
-#define secs_per_hour 1
+#define secs_per_hour 3600
 #define hours_between_task 36
 #define hours_to_critical 36
 
-/* 
+/*
  * Math for how long each 'tick' on the timer should be
  * Every tick, one LED changes colors, scrolling down the length of
  * the string. Green means task was just done, yellow means time to
  * do the task again, red means we are over time to do the task.
- * 
+ *
  * Flashy police lights mean the cat police have been called and
  * are on their way.
  */
 
 #define SECS_PER_TICK                                                          \
-  (secs_per_hour * (hours_between_task + hours_to_critical) / LED_COUNT / 2)
+  (secs_per_hour * (hours_between_task + hours_to_critical) / ((LED_COUNT * 2) + 1))
+#define TICK_MS SECS_PER_TICK * 1000
 
 // Declare a light strip object
 Adafruit_NeoPixel strip(LED_COUNT, LED_PIN, NEO_GRB + NEO_KHZ800);
@@ -46,13 +41,15 @@ void setup() {
   strip.setBrightness(50); // Set BRIGHTNESS to about 1/5 (max = 255)
 }
 
-// Some functions of our own for creating animated effects -----------------
-
-// Fill strip pixels one after another with a color. Strip is NOT cleared
-// first; anything there will be covered pixel by pixel. Pass in color
-// (as a single 'packed' 32-bit value, which you can get by calling
-// strip.Color(red, green, blue) as shown in the loop() function above),
-// and a delay time (in milliseconds) between pixels.
+/*
+ * I copied this function from the Adafruit NeoPixel library examples.
+ *
+ * Fill strip pixels one after another with a color. Strip is NOT cleared
+ * first; anything there will be covered pixel by pixel. Pass in color
+ * (as a single 'packed' 32-bit value, which you can get by calling
+ * strip.Color(red, green, blue) as shown in the loop() function above),
+ * and a delay time (in milliseconds) between pixels.
+ */
 void colorWipe(uint32_t color, int wait) {
   for (int i = 0; i < strip.numPixels(); i++) { // For each pixel in strip...
     strip.setPixelColor(i, color);              //  Set pixel's color (in RAM)
@@ -64,9 +61,6 @@ void colorWipe(uint32_t color, int wait) {
 /*
  * This function sets the entire strip to the given color and shows it
  * immediately.
- *
- * The colors are GRB because I am using WS2812b LEDs, which order the
- * colors that way.
  */
 void set_strip_and_show(char red, char green, char blue) {
   for (int c = 0; c < strip.numPixels(); c++) {
@@ -76,19 +70,18 @@ void set_strip_and_show(char red, char green, char blue) {
 }
 
 void loop() {
+  // The device has reset, so begin the countdown
 
-  int tick_delay = SECS_PER_TICK * 1000;
-
-  // The device has reset, so begin the countdown:
   // Set the color to green
   set_strip_and_show(0, 255, 0);
-  delay(tick_delay);
+  delay(TICK_MS);
 
   // Begin the color wipe toward yellow
-  colorWipe(strip.Color(255, 200, 0), tick_delay);
+  colorWipe(strip.Color(255, 200, 0), TICK_MS);
 
   // Begin wipe toward red
-  colorWipe(strip.Color(255, 0, 0), tick_delay);
+  colorWipe(strip.Color(255, 0, 0), TICK_MS);
+  delay(TICK_MS);
 
   // After a tick of red, begin the angry colors
   while (1) {
